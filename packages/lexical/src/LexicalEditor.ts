@@ -80,6 +80,7 @@ export function createEditor(editorConfig?: CreateEditorArgs) {
   ];
   const { onError, html } = config;
   const isEditable = config.editable !== undefined ? config.editable : true;
+  // TODO: Continue here
 
   return new LexicalEditor();
 }
