@@ -1,8 +1,10 @@
 import { createEmptyEditorState, EditorState } from './LexicalEditorState';
 import {
   DOMConversionMap,
+  DOMExportOutput,
   DOMExportOutputMap,
   LexicalNode,
+  NodeKey,
 } from './LexicalNode';
 import { internalGetActiveEditor } from './LexicalUpdates';
 import { createUID } from './LexicalUtils';
@@ -39,12 +41,36 @@ export type LexicalNodeReplacement = {
 
 export type EditorThemeClasses = {};
 
+export type EditorUpdateOptions = {
+  onUpdate?: () => void;
+  skipTransforms?: true;
+  tag?: string | Array<string>;
+  discrete?: true;
+  /** @internal */
+  event?: undefined | UIEvent | Event | null;
+};
+
 export type ErrorHandler = (error: Error) => void;
 
 export type HTMLConfig = {
   export?: DOMExportOutputMap;
   import?: DOMConversionMap;
 };
+
+export type Transform<T extends LexicalNode> = (node: T) => void;
+
+export type RegisteredNode = {
+  klass: Klass<LexicalNode>;
+  transforms: Set<Transform<LexicalNode>>;
+  replace: null | ((node: LexicalNode) => LexicalNode);
+  replaceWithKlass: null | Klass<LexicalNode>;
+  exportDOM?: (
+    editor: LexicalEditor,
+    targetNode: LexicalNode
+  ) => DOMExportOutput;
+};
+
+export type RegisteredNodes = Map<string, RegisteredNode>;
 
 export type CreateEditorArgs = {
   disableEvents?: boolean;
@@ -80,9 +106,52 @@ export function createEditor(editorConfig?: CreateEditorArgs) {
   ];
   const { onError, html } = config;
   const isEditable = config.editable !== undefined ? config.editable : true;
-  // TODO: Continue here
+  let registeredNodes: RegisteredNodes;
 
-  return new LexicalEditor();
+  if (editorConfig === undefined && activeEditor !== null) {
+    registeredNodes = activeEditor._nodes;
+  } else {
+    registeredNodes = new Map();
+    for (let i = 0; i < nodes.length; i++) {
+      let klass = nodes[i];
+      let replace: RegisteredNode['replace'] = null;
+      let replaceWithKlass: RegisteredNode['replaceWithKlass'] = null;
+
+      if (typeof klass !== 'function') {
+        const options = klass;
+        klass = options.replace;
+        replace = options.with;
+        replaceWithKlass = options.withKlass || null;
+      }
+
+      const type = klass.getType();
+      const transform = klass.transform();
+      const transforms = new Set<Transform<LexicalNode>>();
+      if (transform !== null) {
+        transforms.add(transform);
+      }
+
+      registeredNodes.set(type, {
+        exportDOM: html && html.export ? html.export.get(klass) : undefined,
+        klass,
+        replace,
+        replaceWithKlass,
+        transforms,
+      });
+    }
+  }
+
+  return new LexicalEditor(
+    editorState,
+    parentEditor,
+    registeredNodes,
+    {
+      disableEvents,
+      namespace,
+      theme,
+    },
+    onError ? onError : console.error
+  );
 }
 
 export type EditorConfig = {
@@ -92,5 +161,50 @@ export type EditorConfig = {
 };
 
 export class LexicalEditor {
+  ['constructor']!: KlassConstructor<typeof LexicalEditor>;
+
+  _parentEditor: null | LexicalEditor;
+  _rootElement: null | HTMLElement;
+  _editorState: EditorState;
+  _pendingEditorState: null | EditorState;
+  _compositionKey: null | NodeKey;
+  _deferred: Array<() => void>;
+  _keyToDOMMap: Map<NodeKey, HTMLElement>;
+  _updates: Array<[() => void, EditorUpdateOptions | undefined]>;
+  _updating: boolean;
+  _nodes: RegisteredNodes;
   _config: EditorConfig;
+  _onError: ErrorHandler;
+
+  constructor(
+    editorState: EditorState,
+    parentEditor: null | LexicalEditor,
+    nodes: RegisteredNodes,
+    config: EditorConfig,
+    onError: ErrorHandler
+  ) {
+    this._parentEditor = parentEditor;
+    // The root element associated with this editor
+    this._rootElement = null;
+    // The current editor state
+    this._editorState = editorState;
+    // Handling of drafts and updates
+    this._pendingEditorState = null;
+    // Used to help co-ordinate selection and events
+    this._compositionKey = null;
+    this._deferred = [];
+    // Used during reconciliation
+    this._keyToDOMMap = new Map();
+    this._updates = [];
+    this._updating = false;
+    // Listeners
+    // TODO: Add listeners
+
+    // Editor configuration for theme/context.
+    this._config = config;
+    // Mapping of types to their nodes
+    this._nodes = nodes;
+
+    this._onError = onError;
+  }
 }
