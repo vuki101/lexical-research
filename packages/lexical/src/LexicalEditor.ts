@@ -72,6 +72,110 @@ export type RegisteredNode = {
 
 export type RegisteredNodes = Map<string, RegisteredNode>;
 
+// ****** LISTENERS ******
+
+export type DecoratorListener<T = never> = (
+  decorator: Record<NodeKey, T>
+) => void;
+
+export type NodeMutation = 'created' | 'updated' | 'destroyed';
+
+export type MutatedNodes = Map<Klass<LexicalNode>, Map<NodeKey, NodeMutation>>;
+
+export type MutationListener = (
+  nodes: Map<NodeKey, NodeMutation>,
+  payload: {
+    updateTags: Set<string>;
+    dirtyLeaves: Set<string>;
+    prevEditorState: EditorState;
+  }
+) => void;
+
+export type MutationListeners = Map<MutationListener, Klass<LexicalNode>>;
+
+export type EditableListener = (editable: boolean) => void;
+
+export type RootListener = (
+  rootElement: null | HTMLElement,
+  prevRootElement: null | HTMLElement
+) => void;
+
+export type TextContentListener = (text: string) => void;
+
+type IntentionallyMarkedAsDirtyElement = boolean;
+
+export interface UpdateListenerPayload {
+  /**
+   * A Map of NodeKeys of ElementNodes to a boolean that is true
+   * if the node was intentionally mutated ('unintentional' mutations
+   * are triggered when an indirect descendant is marked dirty)
+   */
+  dirtyElements: Map<NodeKey, IntentionallyMarkedAsDirtyElement>;
+  /**
+   * A Set of NodeKeys of all nodes that were marked dirty that
+   * do not inherit from ElementNode.
+   */
+  dirtyLeaves: Set<NodeKey>;
+  /**
+   * The new EditorState after all updates have been processed,
+   * equivalent to `editor.getEditorState()`
+   */
+  editorState: EditorState;
+  /**
+   * The Map of LexicalNode constructors to a `Map<NodeKey, NodeMutation>`,
+   * this is useful when you have a mutation listener type use cases that
+   * should apply to all or most nodes. Will be null if no DOM was mutated,
+   * such as when only the selection changed.
+   *
+   * Added in v0.28.0
+   */
+  mutatedNodes: null | MutatedNodes;
+  /**
+   * For advanced use cases only.
+   *
+   * Tracks the keys of TextNode descendants that have been merged
+   * with their siblings by normalization. Note that these keys may
+   * not exist in either editorState or prevEditorState and generally
+   * this is only used for conflict resolution edge cases in collab.
+   */
+  normalizedNodes: Set<NodeKey>;
+  /**
+   * The previous EditorState that is being discarded
+   */
+  prevEditorState: EditorState;
+  /**
+   * The set of tags added with update options or {@link $addUpdateTag},
+   * node that this includes all tags that were processed in this
+   * reconciliation which may have been added by separate updates.
+   */
+  tags: Set<string>;
+}
+
+export type UpdateListener = (payload: UpdateListenerPayload) => void;
+
+export interface Listeners {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  decorator: Set<DecoratorListener<any>>;
+  mutation: MutationListeners;
+  editable: Set<EditableListener>;
+  root: Set<RootListener>;
+  textcontent: Set<TextContentListener>;
+  update: Set<UpdateListener>;
+}
+
+// **** COMMANDS ****
+
+export type LexicalCommand<TPayload> = {
+  type?: string;
+};
+
+export type CommandListener<P> = (payload: P, editor: LexicalEditor) => boolean;
+
+type Commands = Map<
+  LexicalCommand<unknown>,
+  Array<Set<CommandListener<unknown>>>
+>;
+
 export type CreateEditorArgs = {
   disableEvents?: boolean;
   editorState?: EditorState;
@@ -172,6 +276,8 @@ export class LexicalEditor {
   _keyToDOMMap: Map<NodeKey, HTMLElement>;
   _updates: Array<[() => void, EditorUpdateOptions | undefined]>;
   _updating: boolean;
+  _listeners: Listeners;
+  _commands: Commands;
   _nodes: RegisteredNodes;
   _config: EditorConfig;
   _onError: ErrorHandler;
@@ -198,12 +304,22 @@ export class LexicalEditor {
     this._updates = [];
     this._updating = false;
     // Listeners
-    // TODO: Add listeners
-
+    this._listeners = {
+      decorator: new Set(),
+      editable: new Set(),
+      mutation: new Map(),
+      root: new Set(),
+      textcontent: new Set(),
+      update: new Set(),
+    };
+    // Commands
+    this._commands = new Map();
     // Editor configuration for theme/context.
     this._config = config;
     // Mapping of types to their nodes
     this._nodes = nodes;
+    // React node decorators for portals
+    // TODO: continue here
 
     this._onError = onError;
   }
