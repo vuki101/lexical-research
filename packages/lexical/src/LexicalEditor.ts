@@ -279,6 +279,8 @@ export class LexicalEditor {
   _listeners: Listeners;
   _commands: Commands;
   _nodes: RegisteredNodes;
+  _decorators: Record<NodeKey, unknown>;
+  _pendingDecorators: null | Record<NodeKey, unknown>;
   _config: EditorConfig;
   _onError: ErrorHandler;
 
@@ -319,6 +321,9 @@ export class LexicalEditor {
     // Mapping of types to their nodes
     this._nodes = nodes;
     // React node decorators for portals
+    this._decorators = {};
+    this._pendingDecorators = null;
+    // Used to optimize reconciliation
     // TODO: continue here
 
     this._onError = onError;
