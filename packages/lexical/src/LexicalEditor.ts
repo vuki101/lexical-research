@@ -1,3 +1,4 @@
+import { NO_DIRTY_NODES } from './LexicalConstants';
 import { createEmptyEditorState, EditorState } from './LexicalEditorState';
 import {
   DOMConversionMap,
@@ -282,6 +283,12 @@ export class LexicalEditor {
   _decorators: Record<NodeKey, unknown>;
   _pendingDecorators: null | Record<NodeKey, unknown>;
   _config: EditorConfig;
+  _dirtyType: 0 | 1 | 2;
+  _cloneNotNeeded: Set<NodeKey>;
+  _dirtyLeaves: Set<NodeKey>;
+  _dirtyElements: Map<NodeKey, IntentionallyMarkedAsDirtyElement>;
+  _normalizedNodes: Set<NodeKey>;
+  _updateTags: Set<string>;
   _onError: ErrorHandler;
 
   constructor(
@@ -324,6 +331,12 @@ export class LexicalEditor {
     this._decorators = {};
     this._pendingDecorators = null;
     // Used to optimize reconciliation
+    this._dirtyType = NO_DIRTY_NODES;
+    this._cloneNotNeeded = new Set();
+    this._dirtyLeaves = new Set();
+    this._dirtyElements = new Map();
+    this._normalizedNodes = new Set();
+    this._updateTags = new Set();
     // TODO: continue here
 
     this._onError = onError;
