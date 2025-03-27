@@ -1,6 +1,7 @@
 import { NO_DIRTY_NODES } from './LexicalConstants';
 import { createEmptyEditorState, EditorState } from './LexicalEditorState';
 import {
+  DOMConversion,
   DOMConversionMap,
   DOMExportOutput,
   DOMExportOutputMap,
@@ -177,6 +178,49 @@ type Commands = Map<
   Array<Set<CommandListener<unknown>>>
 >;
 
+type DOMConversionCache = Map<
+  string,
+  Array<(node: Node) => DOMConversion | null>
+>;
+
+function initializeConversionCache(
+  nodes: RegisteredNodes,
+  additionalConversions?: DOMConversionMap
+): DOMConversionCache {
+  const conversionCache = new Map();
+  const handledConversions = new Set();
+  const addConversionsToCache = (map: DOMConversionMap) => {
+    Object.keys(map).forEach((key) => {
+      let currentCache = conversionCache.get(key);
+
+      if (currentCache === undefined) {
+        currentCache = [];
+        conversionCache.set(key, currentCache);
+      }
+
+      currentCache.push(map[key]);
+    });
+  };
+  nodes.forEach((node) => {
+    const importDOM = node.klass.importDOM;
+
+    if (importDOM == null || handledConversions.has(importDOM)) {
+      return;
+    }
+
+    handledConversions.add(importDOM);
+    const map = importDOM.call(node.klass);
+
+    if (map !== null) {
+      addConversionsToCache(map);
+    }
+  });
+  if (additionalConversions) {
+    addConversionsToCache(additionalConversions);
+  }
+  return conversionCache;
+}
+
 export type CreateEditorArgs = {
   disableEvents?: boolean;
   editorState?: EditorState;
@@ -255,7 +299,10 @@ export function createEditor(editorConfig?: CreateEditorArgs) {
       namespace,
       theme,
     },
-    onError ? onError : console.error
+    onError ? onError : console.error,
+    initializeConversionCache(registeredNodes, html ? html.import : undefined),
+    isEditable,
+    editorConfig
   );
 }
 
@@ -268,6 +315,7 @@ export type EditorConfig = {
 export class LexicalEditor {
   ['constructor']!: KlassConstructor<typeof LexicalEditor>;
 
+  _headless: boolean;
   _parentEditor: null | LexicalEditor;
   _rootElement: null | HTMLElement;
   _editorState: EditorState;
@@ -289,15 +337,26 @@ export class LexicalEditor {
   _dirtyElements: Map<NodeKey, IntentionallyMarkedAsDirtyElement>;
   _normalizedNodes: Set<NodeKey>;
   _updateTags: Set<string>;
+  _observer: null | MutationObserver;
+  _key: string;
   _onError: ErrorHandler;
+  _htmlConversions: DOMConversionCache;
+  _window: null | Window;
+  _editable: boolean;
+  _blockCursorElement: null | HTMLDivElement;
+  _createEditorArgs?: undefined | CreateEditorArgs;
 
   constructor(
     editorState: EditorState,
     parentEditor: null | LexicalEditor,
     nodes: RegisteredNodes,
     config: EditorConfig,
-    onError: ErrorHandler
+    onError: ErrorHandler,
+    htmlConversions: DOMConversionCache,
+    editable: boolean,
+    createEditorArgs?: CreateEditorArgs
   ) {
+    this._createEditorArgs = createEditorArgs;
     this._parentEditor = parentEditor;
     // The root element associated with this editor
     this._rootElement = null;
@@ -337,8 +396,16 @@ export class LexicalEditor {
     this._dirtyElements = new Map();
     this._normalizedNodes = new Set();
     this._updateTags = new Set();
-    // TODO: continue here
+    // Handling of DOM mutations
+    this._observer = null;
+    // Used for identifying owning editors
+    this._key = createUID();
 
     this._onError = onError;
+    this._htmlConversions = htmlConversions;
+    this._editable = editable;
+    this._headless = parentEditor !== null && parentEditor._headless;
+    this._window = null;
+    this._blockCursorElement = null;
   }
 }

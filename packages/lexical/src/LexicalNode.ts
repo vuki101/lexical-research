@@ -15,6 +15,8 @@ export class LexicalNode {
   static transform(): ((node: LexicalNode) => void) | null {
     return null;
   }
+
+  static importDOM?: () => DOMConversionMap<any> | null;
 }
 
 export type NodeKey = string;
