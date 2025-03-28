@@ -9,7 +9,7 @@ import {
   NodeKey,
 } from './LexicalNode';
 import { internalGetActiveEditor } from './LexicalUpdates';
-import { createUID } from './LexicalUtils';
+import { createUID, getCachedClassNameArray } from './LexicalUtils';
 import { LineBreakNode } from './nodes/LexicalLineBreakNode';
 import { RootNode } from './nodes/LexicalRootNode';
 import { TabNode } from './nodes/LexicalTabNode';
@@ -41,7 +41,9 @@ export type LexicalNodeReplacement = {
   withKlass?: Klass<LexicalNode>;
 };
 
-export type EditorThemeClasses = {};
+export type EditorThemeClasses = {
+  [key: string]: any;
+};
 
 export type EditorUpdateOptions = {
   onUpdate?: () => void;
@@ -407,5 +409,13 @@ export class LexicalEditor {
     this._headless = parentEditor !== null && parentEditor._headless;
     this._window = null;
     this._blockCursorElement = null;
+  }
+
+  setRootElement(nextRootElement: null | HTMLElement): void {
+    const prevRootElement = this._rootElement;
+
+    if (nextRootElement !== prevRootElement) {
+      const classNames = getCachedClassNameArray(this._config.theme, 'root');
+    }
   }
 }
