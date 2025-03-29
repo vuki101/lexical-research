@@ -1,4 +1,5 @@
 import normalizeClassNames from '../../shared/src/normalizeClassNames';
+import { DOM_DOCUMENT_TYPE, DOM_ELEMENT_TYPE } from './LexicalConstants';
 import { EditorThemeClasses } from './LexicalEditor';
 
 export function createUID(): string {
@@ -32,4 +33,36 @@ export function getCachedClassNameArray(
     return classNamesArr;
   }
   return classNames;
+}
+
+export function isDOMNode(x: unknown): x is Node {
+  return (
+    typeof x === 'object' &&
+    x !== null &&
+    'nodeType' in x &&
+    typeof x.nodeType === 'number'
+  );
+}
+
+export function isDOMDocumentNode(node: unknown): node is Document {
+  return isDOMNode(node) && node.nodeType === DOM_DOCUMENT_TYPE;
+}
+
+export function isHTMLElement(x: unknown): x is HTMLElement {
+  return isDOMNode(x) && x.nodeType === DOM_ELEMENT_TYPE;
+}
+
+export function getDOMOwnerDocument(
+  target: EventTarget | null
+): Document | null {
+  return isDOMDocumentNode(target)
+    ? target
+    : isHTMLElement(target)
+    ? target.ownerDocument
+    : null;
+}
+
+export function getDefaultView(domElem: EventTarget | null): Window | null {
+  const ownerDoc = getDOMOwnerDocument(domElem);
+  return ownerDoc ? ownerDoc.defaultView : null;
 }

@@ -1,5 +1,7 @@
-import { NO_DIRTY_NODES } from './LexicalConstants';
+import { FULL_RECONCILE, NO_DIRTY_NODES } from './LexicalConstants';
 import { createEmptyEditorState, EditorState } from './LexicalEditorState';
+import { removeRootElementEvents } from './LexicalEvents';
+import { initMutationObserver } from './LexicalMutations';
 import {
   DOMConversion,
   DOMConversionMap,
@@ -9,7 +11,11 @@ import {
   NodeKey,
 } from './LexicalNode';
 import { internalGetActiveEditor } from './LexicalUpdates';
-import { createUID, getCachedClassNameArray } from './LexicalUtils';
+import {
+  createUID,
+  getCachedClassNameArray,
+  getDefaultView,
+} from './LexicalUtils';
 import { LineBreakNode } from './nodes/LexicalLineBreakNode';
 import { RootNode } from './nodes/LexicalRootNode';
 import { TabNode } from './nodes/LexicalTabNode';
@@ -458,7 +464,27 @@ export class LexicalEditor {
       this._rootElement = nextRootElement;
       resetEditor(this, prevRootElement, nextRootElement, pendingEditorState);
 
-      // TODO: continue here
+      if (prevRootElement !== null) {
+        if (!this._config.disableEvents) {
+          removeRootElementEvents(prevRootElement);
+        }
+
+        if (classNames != null) {
+          prevRootElement.classList.remove(...classNames);
+        }
+      }
+
+      if (nextRootElement !== null) {
+        const windowObj = getDefaultView(nextRootElement);
+        const style = nextRootElement.style;
+        style.userSelect = 'text';
+        style.whiteSpace = 'pre-wrap';
+        style.wordBreak = 'break-word';
+        nextRootElement.setAttribute('data-lexical-editor', 'true');
+        this._window = windowObj;
+        this._dirtyType = FULL_RECONCILE;
+        initMutationObserver(this);
+      }
     }
   }
 }
