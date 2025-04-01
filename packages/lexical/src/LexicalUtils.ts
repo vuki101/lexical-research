@@ -1,6 +1,7 @@
+import invariant from '../../shared/src/invariant';
 import normalizeClassNames from '../../shared/src/normalizeClassNames';
 import { DOM_DOCUMENT_TYPE, DOM_ELEMENT_TYPE } from './LexicalConstants';
-import { EditorThemeClasses } from './LexicalEditor';
+import { EditorThemeClasses, LexicalEditor } from './LexicalEditor';
 
 export function createUID(): string {
   return Math.random()
@@ -65,4 +66,12 @@ export function getDOMOwnerDocument(
 export function getDefaultView(domElem: EventTarget | null): Window | null {
   const ownerDoc = getDOMOwnerDocument(domElem);
   return ownerDoc ? ownerDoc.defaultView : null;
+}
+
+export function getWindow(editor: LexicalEditor): Window {
+  const windowObj = editor._window;
+  if (windowObj === null) {
+    invariant(false, 'window object not found');
+  }
+  return windowObj;
 }
