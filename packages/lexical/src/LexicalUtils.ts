@@ -1,3 +1,4 @@
+import { CAN_USE_DOM } from '../../shared/src/canUseDOM';
 import invariant from '../../shared/src/invariant';
 import normalizeClassNames from '../../shared/src/normalizeClassNames';
 import { DOM_DOCUMENT_TYPE, DOM_ELEMENT_TYPE } from './LexicalConstants';
@@ -74,4 +75,17 @@ export function getWindow(editor: LexicalEditor): Window {
     invariant(false, 'window object not found');
   }
   return windowObj;
+}
+
+export function getDOMSelection(targetWindow: null | Window): null | Selection {
+  return !CAN_USE_DOM ? null : (targetWindow || window).getSelection();
+}
+
+export function isSelectionWithinEditor(
+  editor: LexicalEditor,
+  anchorDOM: null | Node,
+  focusDOM: null | Node
+): boolean {
+  // TODO: implement this function
+  return true;
 }

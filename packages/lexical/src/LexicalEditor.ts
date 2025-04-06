@@ -487,4 +487,12 @@ export class LexicalEditor {
       }
     }
   }
+
+  getRootElement(): null | HTMLElement {
+    return this._rootElement;
+  }
+
+  getEditorState(): EditorState {
+    return this._editorState;
+  }
 }

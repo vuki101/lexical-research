@@ -7,6 +7,10 @@ const TEXT_MUTATION_VARIANCE = 100;
 let isProcessingMutations = false;
 let lastTextEntryTimeStamp = 0;
 
+export function getIsProcessingMutations(): boolean {
+  return isProcessingMutations;
+}
+
 function updateTimeStamp(event: Event) {
   lastTextEntryTimeStamp = event.timeStamp;
 }

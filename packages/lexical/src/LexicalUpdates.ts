@@ -1,5 +1,8 @@
 import { EditorUpdateOptions, LexicalEditor } from './LexicalEditor';
+import { cloneEditorState, EditorState } from './LexicalEditorState';
 
+let activeEditorState: null | EditorState = null;
+let isReadOnlyMode = false;
 let activeEditor: null | LexicalEditor = null;
 
 export function internalGetActiveEditor(): LexicalEditor | null {
@@ -38,7 +41,49 @@ function $beginUpdate(
     discrete = options.discrete || false;
   }
 
-  // TODO: continue here
+  if (onUpdate) {
+    editor._deferred.push(onUpdate);
+  }
+
+  const currentEditorState = editor._editorState;
+  let pendingEditorState = editor._pendingEditorState;
+  let editorStateWasCloned = false;
+
+  if (pendingEditorState === null || pendingEditorState._readOnly) {
+    pendingEditorState = editor._pendingEditorState = cloneEditorState(
+      pendingEditorState || currentEditorState
+    );
+    editorStateWasCloned = true;
+  }
+  pendingEditorState._flushSync = discrete;
+
+  const previousActiveEditorState = activeEditorState;
+  const previousReadOnlyMode = isReadOnlyMode;
+  const previousActiveEditor = activeEditor;
+  const previouslyUpdating = editor._updating;
+
+  activeEditorState = pendingEditorState;
+  isReadOnlyMode = false;
+  editor._updating = true;
+  activeEditor = editor;
+  const headless = editor._headless || editor.getRootElement() === null;
+
+  try {
+    if (editorStateWasCloned) {
+      if (headless) {
+        if (currentEditorState._selection !== null) {
+          pendingEditorState._selection = currentEditorState._selection.clone();
+        }
+      } else {
+        pendingEditorState._selection = $internalCreateSelection(
+          editor,
+          (options && options.event) || null
+        );
+      }
+    }
+  } catch (error) {
+  } finally {
+  }
 }
 
 /**

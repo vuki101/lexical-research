@@ -2,6 +2,10 @@ import { NodeMap } from './LexicalNode';
 import { BaseSelection } from './LexicalSelection';
 import { $createRootNode } from './nodes/LexicalRootNode';
 
+export function cloneEditorState(current: EditorState): EditorState {
+  return new EditorState(new Map(current._nodeMap));
+}
+
 export function createEmptyEditorState(): EditorState {
   return new EditorState(new Map([['root', $createRootNode()]]));
 }
