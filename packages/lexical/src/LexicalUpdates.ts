@@ -1,9 +1,38 @@
+import invariant from '../../shared/src/invariant';
 import { EditorUpdateOptions, LexicalEditor } from './LexicalEditor';
 import { cloneEditorState, EditorState } from './LexicalEditorState';
+import { $internalCreateSelection } from './LexicalSelection';
 
 let activeEditorState: null | EditorState = null;
 let isReadOnlyMode = false;
 let activeEditor: null | LexicalEditor = null;
+
+export function getActiveEditor(): LexicalEditor {
+  if (activeEditor === null) {
+    invariant(
+      false,
+      'Unable to find an active editor. ' +
+        'This method can only be used ' +
+        'synchronously during the callback of ' +
+        'editor.update() or editor.read().%s'
+    );
+  }
+  return activeEditor;
+}
+
+export function getActiveEditorState(): EditorState {
+  if (activeEditorState === null) {
+    invariant(
+      false,
+      'Unable to find an active editor state. ' +
+        'State helpers or node methods can only be used ' +
+        'synchronously during the callback of ' +
+        'editor.update(), editor.read(), or editorState.read().%s'
+    );
+  }
+
+  return activeEditorState;
+}
 
 export function internalGetActiveEditor(): LexicalEditor | null {
   return activeEditor;
@@ -81,6 +110,11 @@ function $beginUpdate(
         );
       }
     }
+
+    const startingCompositionKey = editor._compositionKey;
+    updateFn();
+
+    // TODO: Continue here
   } catch (error) {
   } finally {
   }

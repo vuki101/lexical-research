@@ -495,4 +495,8 @@ export class LexicalEditor {
   getEditorState(): EditorState {
     return this._editorState;
   }
+
+  isComposing(): boolean {
+    return this._compositionKey != null;
+  }
 }

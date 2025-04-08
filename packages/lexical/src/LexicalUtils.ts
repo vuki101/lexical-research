@@ -1,8 +1,15 @@
 import { CAN_USE_DOM } from '../../shared/src/canUseDOM';
 import invariant from '../../shared/src/invariant';
 import normalizeClassNames from '../../shared/src/normalizeClassNames';
-import { DOM_DOCUMENT_TYPE, DOM_ELEMENT_TYPE } from './LexicalConstants';
+import {
+  DOM_DOCUMENT_FRAGMENT_TYPE,
+  DOM_DOCUMENT_TYPE,
+  DOM_ELEMENT_TYPE,
+} from './LexicalConstants';
 import { EditorThemeClasses, LexicalEditor } from './LexicalEditor';
+import { EditorState } from './LexicalEditorState';
+import { LexicalNode, NodeKey } from './LexicalNode';
+import { getActiveEditor, getActiveEditorState } from './LexicalUpdates';
 
 export function createUID(): string {
   return Math.random()
@@ -79,6 +86,67 @@ export function getWindow(editor: LexicalEditor): Window {
 
 export function getDOMSelection(targetWindow: null | Window): null | Selection {
   return !CAN_USE_DOM ? null : (targetWindow || window).getSelection();
+}
+
+export function isDocumentFragment(x: unknown): x is DocumentFragment {
+  return isDOMNode(x) && x.nodeType === DOM_DOCUMENT_FRAGMENT_TYPE;
+}
+
+export function getParentElement(node: Node): HTMLElement | null {
+  const parentElement =
+    (node as HTMLSlotElement).assignedSlot || node.parentElement;
+  return isDocumentFragment(parentElement)
+    ? ((parentElement as unknown as ShadowRoot).host as HTMLElement)
+    : parentElement;
+}
+
+export function getNodeKeyFromDOMNode(
+  dom: Node,
+  editor: LexicalEditor
+): NodeKey | undefined {
+  const prop = `__lexicalKey_${editor._key}`;
+  return (dom as Node & Record<typeof prop, NodeKey | undefined>)[prop];
+}
+
+function getNodeKeyFromDOMTree(
+  // Note that node here refers to a DOM Node, not an Lexical Node
+  dom: Node,
+  editor: LexicalEditor
+): NodeKey | null {
+  let node: Node | null = dom;
+  while (node != null) {
+    const key = getNodeKeyFromDOMNode(node, editor);
+    if (key !== undefined) {
+      return key;
+    }
+    node = getParentElement(node);
+  }
+  return null;
+}
+
+export function $getNodeByKey<T extends LexicalNode>(
+  key: NodeKey,
+  _editorState?: EditorState
+): T | null {
+  const editorState = _editorState || getActiveEditorState();
+  const node = editorState._nodeMap.get(key) as T;
+  if (node === undefined) {
+    return null;
+  }
+  return node;
+}
+
+export function $getNodeFromDOM(dom: Node): null | LexicalNode {
+  const editor = getActiveEditor();
+  const nodeKey = getNodeKeyFromDOMTree(dom, editor);
+  if (nodeKey === null) {
+    const rootElement = editor.getRootElement();
+    if (dom === rootElement) {
+      return $getNodeByKey('root');
+    }
+    return null;
+  }
+  return $getNodeByKey(nodeKey);
 }
 
 export function isSelectionWithinEditor(
