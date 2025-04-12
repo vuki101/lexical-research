@@ -6,6 +6,7 @@ import { $internalCreateSelection } from './LexicalSelection';
 let activeEditorState: null | EditorState = null;
 let isReadOnlyMode = false;
 let activeEditor: null | LexicalEditor = null;
+let infiniteTransformCount = 0;
 
 export function getActiveEditor(): LexicalEditor {
   if (activeEditor === null) {
@@ -117,6 +118,11 @@ function $beginUpdate(
     // TODO: Continue here
   } catch (error) {
   } finally {
+    activeEditorState = previousActiveEditorState;
+    isReadOnlyMode = previousReadOnlyMode;
+    activeEditor = previousActiveEditor;
+    editor._updating = previouslyUpdating;
+    infiniteTransformCount = 0;
   }
 }
 

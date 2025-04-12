@@ -336,7 +336,7 @@ export function createEditor(editorConfig?: CreateEditorArgs) {
     }
   }
 
-  return new LexicalEditor(
+  const editor = new LexicalEditor(
     editorState,
     parentEditor,
     registeredNodes,
@@ -350,6 +350,13 @@ export function createEditor(editorConfig?: CreateEditorArgs) {
     isEditable,
     editorConfig
   );
+
+  if (initialEditorState !== undefined) {
+    editor._pendingEditorState = initialEditorState;
+    editor._dirtyType = FULL_RECONCILE;
+  }
+
+  return editor;
 }
 
 export type EditorConfig = {
