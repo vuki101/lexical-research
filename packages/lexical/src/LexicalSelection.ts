@@ -1,4 +1,5 @@
 import { LexicalEditor } from './LexicalEditor';
+import { EditorState } from './LexicalEditorState';
 import { getIsProcessingMutations } from './LexicalMutations';
 import { LexicalNode, NodeKey } from './LexicalNode';
 import { getActiveEditor } from './LexicalUpdates';
@@ -331,4 +332,29 @@ export function $internalCreateSelection(
   }
 
   return lastSelection.clone();
+}
+
+export function applySelectionTransforms(
+  nextEditorState: EditorState,
+  editor: LexicalEditor
+): void {
+  const prevEditorState = editor.getEditorState();
+  const prevSelection = prevEditorState._selection;
+  const nextSelection = nextEditorState._selection;
+  if ($isRangeSelection(nextSelection)) {
+    const anchor = nextSelection.anchor;
+    const focus = nextSelection.focus;
+    let anchorNode;
+
+    if (anchor.type === 'text') {
+      anchorNode = anchor.getNode();
+      anchorNode.selectionTransform(prevSelection, nextSelection);
+    }
+    if (focus.type === 'text') {
+      const focusNode = focus.getNode();
+      if (anchorNode !== focusNode) {
+        focusNode.selectionTransform(prevSelection, nextSelection);
+      }
+    }
+  }
 }

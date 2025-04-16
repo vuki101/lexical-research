@@ -1,7 +1,10 @@
 import invariant from '../../shared/src/invariant';
 import { EditorUpdateOptions, LexicalEditor } from './LexicalEditor';
 import { cloneEditorState, EditorState } from './LexicalEditorState';
-import { $internalCreateSelection } from './LexicalSelection';
+import {
+  $internalCreateSelection,
+  applySelectionTransforms,
+} from './LexicalSelection';
 
 let activeEditorState: null | EditorState = null;
 let isReadOnlyMode = false;
@@ -51,6 +54,52 @@ function addTags(editor: LexicalEditor, tags: undefined | string | string[]) {
   for (const tag of tags_) {
     updateTags.add(tag);
   }
+}
+
+function processNestedUpdates(
+  editor: LexicalEditor,
+  initialSkipTransforms?: boolean
+): boolean {
+  const queuedUpdates = editor._updates;
+  let skipTransforms = initialSkipTransforms || false;
+
+  // Updates might grow as we process them, we so we'll need
+  // to handle each update as we go until the updates array is
+  // empty.
+  while (queuedUpdates.length !== 0) {
+    const queuedUpdate = queuedUpdates.shift();
+    if (queuedUpdate) {
+      const [nextUpdateFn, options] = queuedUpdate;
+
+      let onUpdate;
+
+      if (options !== undefined) {
+        onUpdate = options.onUpdate;
+
+        if (options.skipTransforms) {
+          skipTransforms = true;
+        }
+        if (options.discrete) {
+          const pendingEditorState = editor._pendingEditorState;
+          invariant(
+            pendingEditorState !== null,
+            'Unexpected empty pending editor state on discrete nested update'
+          );
+          pendingEditorState._flushSync = true;
+        }
+
+        if (onUpdate) {
+          editor._deferred.push(onUpdate);
+        }
+
+        addTags(editor, options.tag);
+      }
+
+      nextUpdateFn();
+    }
+  }
+
+  return skipTransforms;
 }
 
 function $beginUpdate(
@@ -114,6 +163,8 @@ function $beginUpdate(
 
     const startingCompositionKey = editor._compositionKey;
     updateFn();
+    skipTransforms = processNestedUpdates(editor, skipTransforms);
+    applySelectionTransforms(pendingEditorState, editor);
 
     // TODO: Continue here
   } catch (error) {
