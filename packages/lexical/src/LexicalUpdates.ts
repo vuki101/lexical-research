@@ -1,10 +1,13 @@
 import invariant from '../../shared/src/invariant';
+import { NO_DIRTY_NODES } from './LexicalConstants';
 import { EditorUpdateOptions, LexicalEditor } from './LexicalEditor';
 import { cloneEditorState, EditorState } from './LexicalEditorState';
+import { $normalizeTextNode } from './LexicalNormalization';
 import {
   $internalCreateSelection,
   applySelectionTransforms,
 } from './LexicalSelection';
+import { $isTextNode } from './nodes/LexicalTextNode';
 
 let activeEditorState: null | EditorState = null;
 let isReadOnlyMode = false;
@@ -42,6 +45,27 @@ export function internalGetActiveEditor(): LexicalEditor | null {
   return activeEditor;
 }
 
+function $normalizeAllDirtyTextNodes(
+  editorState: EditorState,
+  editor: LexicalEditor
+): void {
+  const dirtyLeaves = editor._dirtyLeaves;
+  const nodeMap = editorState._nodeMap;
+
+  for (const nodeKey of dirtyLeaves) {
+    const node = nodeMap.get(nodeKey);
+
+    if (
+      $isTextNode(node) &&
+      node.isAttached() &&
+      node.isSimpleText() &&
+      !node.isUnmergeable()
+    ) {
+      $normalizeTextNode(node);
+    }
+  }
+}
+
 function addTags(editor: LexicalEditor, tags: undefined | string | string[]) {
   if (!tags) {
     return;
@@ -55,6 +79,11 @@ function addTags(editor: LexicalEditor, tags: undefined | string | string[]) {
     updateTags.add(tag);
   }
 }
+
+function $applyAllTransforms(
+  editorState: EditorState,
+  editor: LexicalEditor
+): void {}
 
 function processNestedUpdates(
   editor: LexicalEditor,
@@ -165,6 +194,17 @@ function $beginUpdate(
     updateFn();
     skipTransforms = processNestedUpdates(editor, skipTransforms);
     applySelectionTransforms(pendingEditorState, editor);
+
+    if (editor._dirtyType !== NO_DIRTY_NODES) {
+      if (skipTransforms) {
+        $normalizeAllDirtyTextNodes(pendingEditorState, editor);
+      } else {
+        $applyAllTransforms(pendingEditorState, editor);
+      }
+
+      processNestedUpdates(editor, skipTransforms);
+      // TODO: continue here
+    }
 
     // TODO: Continue here
   } catch (error) {

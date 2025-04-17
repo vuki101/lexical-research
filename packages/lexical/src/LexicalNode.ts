@@ -1,8 +1,40 @@
 import invariant from '../../shared/src/invariant';
 import { Klass, KlassConstructor, LexicalEditor } from './LexicalEditor';
+import { $getNodeByKey } from './LexicalUtils';
 
 export class LexicalNode {
   ['constructor']!: KlassConstructor<typeof LexicalNode>;
+  __type: string;
+  __key: string;
+  __parent: null | NodeKey;
+
+  isAttached(): boolean {
+    let nodeKey: string | null = this.__key;
+    while (nodeKey !== null) {
+      if (nodeKey === 'root') {
+        return true;
+      }
+
+      const node: LexicalNode | null = $getNodeByKey(nodeKey);
+
+      if (node === null) {
+        break;
+      }
+      nodeKey = node.__parent;
+    }
+    return false;
+  }
+
+  getLatest(): this {
+    const latest = $getNodeByKey<this>(this.__key);
+    if (latest === null) {
+      invariant(
+        false,
+        'Lexical node does not exist in active editor state. Avoid using the same node references between nested closures from editorState.read/editor.update.'
+      );
+    }
+    return latest;
+  }
 
   static getType(): string {
     invariant(
